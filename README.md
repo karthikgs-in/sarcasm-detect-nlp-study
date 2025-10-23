@@ -40,5 +40,4 @@ DistilBERT achieved near-BERT accuracy with almost half the parameters, validati
 ## 🔗 Links
 - Dataset: [News Headlines for Sarcasm Detection](https://github.com/rishabhmisra/News-Headlines-Dataset-For-Sarcasm-Detection)
 - Pretrained Model: [helinivan/english-sarcasm-detector](https://huggingface.co/helinivan/english-sarcasm-detector)
-- Kaggle Profile: [kaggle.com/skarthikguruswamy](https://www.kaggle.com/skarthikguruswamy)
 - GPT: [Oh Great, Another Monday](https://chat.openai.com/g/g-85C0MB3G8-oh-great-another-monday)
