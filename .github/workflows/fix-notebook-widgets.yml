@@ -1,0 +1,90 @@
+name: Fix Notebook Widgets Metadata
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  fix-metadata:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+      uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install nbformat
+
+      - name: Fix widget metadata (preserve widgets)
+        run: |
+          python3 - << 'EOF'
+          import nbformat
+          from pathlib import Path
+
+          LEGACY_KEY = "application/vnd.jupyter.widget-state+json"
+
+          changed_files = []
+
+          for path in Path(".").rglob("*.ipynb"):
+              nb = nbformat.read(path, as_version=nbformat.NO_CONVERT)
+
+              widgets = nb.metadata.get("widgets")
+              if not isinstance(widgets, dict):
+                  continue  # nothing to do
+
+              original_widgets = dict(widgets)
+
+              # 1. Derive state
+              if "state" not in widgets:
+                  state_value = {}
+                  legacy = widgets.get(LEGACY_KEY)
+                  if isinstance(legacy, dict):
+                      # ipywidgets legacy format often has 'state' inside
+                      state_value = legacy.get("state", {}) or {}
+                  widgets["state"] = state_value
+
+              # 2. Derive version info
+              if "version" not in widgets:
+                  version_value = {}
+                  legacy = widgets.get(LEGACY_KEY)
+                  if isinstance(legacy, dict):
+                      major = legacy.get("version_major")
+                      minor = legacy.get("version_minor")
+                      if major is not None and minor is not None:
+                          # Make a reasonable guess for a semantic version string
+                          version_value = {
+                              "@jupyter-widgets/base": f"{major}.{minor}.0"
+                          }
+                  widgets["version"] = version_value
+
+              # (Optional) keep legacy key as-is; it's usually harmless.
+              nb.metadata["widgets"] = widgets
+
+              if widgets != original_widgets:
+                  nbformat.write(nb, path)
+                  changed_files.append(str(path))
+
+          if changed_files:
+              print("Updated widget metadata in:")
+              for f in changed_files:
+                  print(" -", f)
+          else:
+              print("No widget metadata changes needed.")
+          EOF
+
+      - name: Commit changes
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Auto-fix: normalize notebook widget metadata"
+            git push
+          else
+            echo "No changes to commit."
+          fi
