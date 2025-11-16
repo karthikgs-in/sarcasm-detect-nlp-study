@@ -10,7 +10,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-      uses: actions/checkout@v4
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -62,7 +62,6 @@ jobs:
                           }
                   widgets["version"] = version_value
 
-              # (Optional) keep legacy key as-is; it's usually harmless.
               nb.metadata["widgets"] = widgets
 
               if widgets != original_widgets:
@@ -85,6 +84,5 @@ jobs:
           if ! git diff --cached --quiet; then
             git commit -m "Auto-fix: normalize notebook widget metadata"
             git push
-          else
+          else:
             echo "No changes to commit."
-          fi
