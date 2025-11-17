@@ -1,15 +1,15 @@
-name: Fix Notebook Widgets Metadata
+name: Clean Notebook Widgets
 
 on:
   push:
     branches: [ main ]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  fix-metadata:
+  clean-widgets:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,63 +21,31 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install nbformat
         run: pip install nbformat
 
-      - name: Fix widget metadata (preserve widgets)
+      - name: Remove metadata.widgets from notebooks
         run: |
           python3 - << 'EOF'
           import nbformat
           from pathlib import Path
 
-          LEGACY_KEY = "application/vnd.jupyter.widget-state+json"
-
           changed_files = []
 
           for path in Path(".").rglob("*.ipynb"):
               nb = nbformat.read(path, as_version=nbformat.NO_CONVERT)
-
-              widgets = nb.metadata.get("widgets")
-              if not isinstance(widgets, dict):
-                  continue  # nothing to do
-
-              original_widgets = dict(widgets)
-
-              # 1. Derive state
-              if "state" not in widgets:
-                  state_value = {}
-                  legacy = widgets.get(LEGACY_KEY)
-                  if isinstance(legacy, dict):
-                      # ipywidgets legacy format often has 'state' inside
-                      state_value = legacy.get("state", {}) or {}
-                  widgets["state"] = state_value
-
-              # 2. Derive version info
-              if "version" not in widgets:
-                  version_value = {}
-                  legacy = widgets.get(LEGACY_KEY)
-                  if isinstance(legacy, dict):
-                      major = legacy.get("version_major")
-                      minor = legacy.get("version_minor")
-                      if major is not None and minor is not None:
-                          # Make a reasonable guess for a semantic version string
-                          version_value = {
-                              "@jupyter-widgets/base": f"{major}.{minor}.0"
-                          }
-                  widgets["version"] = version_value
-
-              nb.metadata["widgets"] = widgets
-
-              if widgets != original_widgets:
+              if "widgets" in nb.metadata:
+                  print(f"Removing metadata.widgets in {path}")
+                  del nb.metadata["widgets"]
                   nbformat.write(nb, path)
                   changed_files.append(str(path))
 
           if changed_files:
-              print("Updated widget metadata in:")
-              for f in changed_files:
-                  print(" -", f)
+              print("Updated notebooks:")
+              for p in changed_files:
+                  print(" -", p)
           else:
-              print("No widget metadata changes needed.")
+              print("No notebooks needed changes.")
           EOF
 
       - name: Commit changes
@@ -87,7 +55,7 @@ jobs:
           git config --global user.email "actions@github.com"
           git add -A
           if ! git diff --cached --quiet; then
-            git commit -m "Auto-fix: normalize notebook widget metadata"
+            git commit -m "Auto-fix: strip notebook widget metadata"
             git push
           else
             echo "No changes to commit."
